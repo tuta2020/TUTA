@@ -114,3 +114,48 @@ class TUTAbaseforCTC(nn.Module):
         )
         sep_triple, tok_triple = self.ctc_head(encoded_states, indicator, ctc_label) 
         return sep_triple, tok_triple
+
+    
+class TUTAForTTC(nn.Module):
+    def __init__(self, config):
+        super(TutaForTTC, self).__init__()
+        self.backbone = bbs.BACKBONES[config.target](config)
+        self.ttc_head = hds.TtcHead(config)
+
+    def forward(
+        self, 
+        token_id, num_mag, num_pre, num_top, num_low, 
+        token_order, pos_row, pos_col, pos_top, pos_left, 
+        format_vec, indicator, ttc_label
+    ):
+        encoded_states = self.backbone(
+            token_id, num_mag, num_pre, num_top, num_low, 
+            token_order, pos_row, pos_col, pos_top, pos_left, 
+            format_vec, indicator
+        )
+        loss, prediction = self.ttc_head(encoded_states, ttc_label)
+
+        return loss, prediction, ttc_label
+
+class TUTAbaseforTTC(nn.Module):
+    def __init__(self, config):
+        super(TUTAbaseforTTC, self).__init__()
+        self.backbone = bbs.BACKBONES[config.target](config)
+        self.ttc_head = hds.TtcHead(config)
+
+    def forward(
+        self, 
+        token_id, num_mag, num_pre, num_top, num_low, 
+        token_order, pos_top, pos_left, 
+        format_vec, indicator, ttc_label
+    ):
+        encoded_states = self.backbone(
+            token_id, num_mag, num_pre, num_top, num_low, 
+            token_order, pos_top, pos_left, 
+            format_vec, indicator
+        )
+        loss, prediction = self.ttc_head(encoded_states, ttc_label)
+
+        return loss, prediction, ttc_label
+
+    
