@@ -911,3 +911,133 @@ class CtcTokenizer(TableTokenizer):
                 seq_len += cell_len
                 cell_num += 1
         return token_list, num_list, pos_list, fmt_list, ind_list, label_list
+
+
+    
+class TtcTokenizer(TableTokenizer):
+    """Adapted tokenizer for Table Type Classification."""
+
+    def __init__(self, args):
+        super(TtcTokenizer, self).__init__(args)
+    
+    def check_valid(self, tokens, numbers, in_header):
+        if EMP_ID in tokens:
+            return 0
+
+        if self.wordpiece_tokenizer.default_num not in set(numbers[1: ]):  # pure numeric
+            if (in_header == True) or (random.random() < self.value_threshold):
+                return 1
+        elif set([self.wordpiece_tokenizer.default_num]) == set(numbers[1: ]):  # pure text
+            if (in_header == True) or (random.random() < self.text_threshold):
+                return 2
+        else:  # halfway
+            if (in_header == True) or (random.random() < self.value_threshold):
+                return 2
+        return 0
+
+    def sampling(self, token_matrix, number_matrix):
+        """Mark each cell: '0' as dumped, other cases as input. """
+        sampling_mask = [[1 for cell in row] for row in token_matrix]
+        header_rows, header_columns = 1, 1
+
+        for irow, token_row in enumerate(token_matrix):
+            for icol, tokens in enumerate(token_row):
+                # in_header = (irow < header_rows) or (icol < header_columns)
+                cell_valid = self.check_valid(tokens, number_matrix[irow][icol], in_header=True)
+                sampling_mask[irow][icol] = cell_valid
+
+        return sampling_mask
+    
+    def init_table_lists(self, root_text: str = "") -> Dict:
+        """Initialize table sequences with CLS_ID at head for TTC prediction, add context if provided."""
+        context_tokens, context_number = self.tokenize_text(cell_string=root_text, add_separate=False, max_cell_len=32)
+
+        token_list = [ [CLS_ID] +  context_tokens ]
+        num_list = [ [self.wordpiece_tokenizer.default_num] + context_number ]
+        pos_list = [(self.row_size, self.column_size, [-1]*self.tree_depth, [-1]*self.tree_depth)]
+        fmt_list = [ self.default_format ]
+        ind_list = [ [-1] + [-2 for _ in context_tokens] ]
+        
+        cell_num = 1
+        seq_len = len(token_list[0])
+
+        return token_list, num_list, pos_list, fmt_list, ind_list, cell_num, seq_len
+    
+    def create_table_lists(
+        self, 
+        string_matrix: List[List[str]], 
+        top_position_list: List[List[List[int]]], 
+        left_position_list: List[List[List[int]]],
+        title: str, 
+        label: int, 
+        format_matrix: List = None, 
+        add_separate: bool = True, 
+        **kwargs
+    ): 
+        token_list, num_list, pos_list, fmt_list, ind_list, cell_num, seq_len = self.init_table_lists(title)
+
+        nrows, ncols = len(string_matrix), len(string_matrix[0])
+        token_matrix, number_matrix = self.tokenize_string_matrix(string_matrix, add_separate)
+        sampling_matrix = self.sampling(token_matrix, number_matrix)
+        assert len(token_matrix) == len(number_matrix) == len(sampling_matrix) == nrows
+        assert len(token_matrix[0]) == len(number_matrix[0]) == len(sampling_matrix[0]) == ncols
+        if format_matrix is None:
+            format_matrix = [[self.default_format for _ in range(ncols)] for _ in range(nrows)]
+        
+        for irow, token_row in enumerate(token_matrix):
+            for icol, token_cell in enumerate(token_row):
+                if sampling_matrix[irow][icol] == 0: continue
+    
+                token_list.append(token_cell)
+                num_list.append(number_matrix[irow][icol])
+
+                icell = irow * ncols + icol
+                pos_list.append( (irow, icol, top_position_list[icell], left_position_list[icell]) )
+
+                cell_len = len(token_cell)
+                format_vector = []
+                for ivec, vec in enumerate(format_matrix[irow][icol]):
+                    format_vector.append( min(vec, self.format_range[ivec]) / self.format_range[ivec] )
+                fmt_list.append( format_vector )
+                ind_list.append( [cell_num*2 for _ in range(cell_len)] )
+                ind_list[-1][0] -= 1
+
+                seq_len += cell_len
+                cell_num += 1
+        
+        return token_list, num_list, pos_list, fmt_list, ind_list, label
+
+    @staticmethod
+    def table_lists_to_seq(lists, target):
+        """Serialize lists of loaded samples to model input sequences."""
+        token_list, num_list, pos_list, fmt_list, ind_list, ttc_label = lists
+        token_id, num_mag, num_pre, num_top, num_low = [], [], [], [], []
+        token_order, pos_row, pos_col, pos_top, pos_left = [], [], [], [], []
+        fmt_vec, indicator = [], []
+
+        for tokens, num_feats, (r, c, t, l), fmt, ind in zip(token_list, num_list, pos_list, fmt_list, ind_list):
+            cell_len = len(tokens)
+            cell_len = min(8, cell_len)
+
+            token_id.extend(tokens[:cell_len])
+            num_mag.extend([f[0] for f in num_feats[:cell_len]])
+            num_pre.extend([f[1] for f in num_feats[:cell_len]])
+            num_top.extend([f[2] for f in num_feats[:cell_len]])
+            num_low.extend([f[3] for f in num_feats[:cell_len]])
+            token_order.extend([ii for ii in range(cell_len)])
+            pos_row.extend([r for _ in range(cell_len)])
+            pos_col.extend([c for _ in range(cell_len)])
+            entire_top = UNZIPS[target](t)
+            pos_top.extend([entire_top for _ in range(cell_len)])
+            entire_left = UNZIPS[target](l)
+            fmt_vec.extend( [fmt for _ in range(cell_len)] )
+            pos_left.extend([entire_left for _ in range(cell_len)])
+            indicator.extend(ind[:cell_len])
+        
+        if len(token_id) > 256: return None
+        
+        return (
+            token_id, num_mag, num_pre, num_top, num_low, 
+            token_order, pos_row, pos_col, pos_top, pos_left, 
+            fmt_vec, indicator, ttc_label
+        )
