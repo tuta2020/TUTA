@@ -22,10 +22,17 @@ python train.py \
 one can find more adjustable arguments in the main procedure.
 
 
-## Cell Type Classification
+## Downstream tasks
+
+### __Cell Type Classification (CTC)__
 To perform the task of cell type classification at downstream: 
-- for data processing, use SheetReader in the reader.py and CtcTokenizer in the tokenizer.py; 
-- for fine-tuning, use the CtcHead and TUTA(base)forCTC in the ./model/ directory.
+- for data processing, use `SheetReader` in the reader.py and `CtcTokenizer` in the tokenizer.py; 
+- for fine-tuning, use the `CtcHead` and `TUTA(base)forCTC` in the ./model/ directory.
+
+### __Table Type Classification (TTC)__
+To perform the task of table type classification at downstream: 
+- for data processing, use `SheetReader` in the reader.py and `TtcTokenizer` in the tokenizer.py; 
+- for fine-tuning, use the `TtcHead` and `TUTA(base)forTTC` in the ./model/ directory.
 
 
 ## Data Pre-processing
