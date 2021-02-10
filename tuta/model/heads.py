@@ -215,3 +215,38 @@ class CtcHead(nn.Module):
         # tok_count = torch.tensor(tok_logits.size()[0] + 1e-6)         # 1d tensor
         # return (sep_loss, sep_correct, sep_count), (tok_loss, tok_correct, tok_count)
         return (sep_loss, sep_predict, sep_labels), (tok_loss, tok_predict, tok_labels)
+
+    
+class TtcHead(nn.Module):
+    """Fine-tuning head for the task of table type classification."""
+
+    def __init__(self, config):
+        super(TtcHead, self).__init__()
+        self.uniform_linear = nn.Linear(config.hidden_size, config.hidden_size)
+        self.act_fn = act.ACT_FCN[config.hidden_act]
+        # self.tanh = nn.Tanh()
+        self.predict_linear = nn.Linear(config.hidden_size, config.num_table_types)
+        self.loss = nn.CrossEntropyLoss()
+    
+    def forward(self, encoded_states, ttc_label, return_prediction=True):
+        """Predict table types with the transformed CLS, then compute loss against the ttc_label. 
+        
+        Args:
+            encoded_states <float> [batch-size, seq-len, hidden-size]: representation of the last hidden layer.
+            ttc_label <int> [batch-size]: type of the table.
+        Returns: 
+            loss <float> []: computed cross-entropy loss.
+            ttc_logits <float> [batch-size, num_table_types]: logits over table types,
+            *prediction <int> [batch-size]: predicted table type.
+        """
+        transformed_states = self.uniform_linear(encoded_states)   # [batch-size, seq-len, hidden-size]
+        table_state = transformed_states[:, 0, :]                  # [batch-size, hidden-size]
+        table_state = self.act_fn(table_state)                     # [batch-size, hidden-size]
+        ttc_logits = self.predict_linear(table_state)              # [batch-size, hidden-size]
+        loss = self.loss(ttc_logits, ttc_label)                    # []
+        
+        if return_prediction == True:
+            prediction = ttc_logits.argmax(dim=-1)                 # [batch-size]
+            return loss, prediction
+        
+        return loss, ttc_logits
