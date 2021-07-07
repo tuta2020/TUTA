@@ -1,6 +1,11 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-""" Data pre-processing. """
+""" Data pre-processing. 
+
+Build a dataset pre-processing object according to the source types. 
+Distributed building and saving with multiple workers. 
+"""
+
 
 import os
 import pickle
@@ -305,15 +310,16 @@ class WdcDataset(object):
 
 
 
-SETS = {"sheet": SheetDataset, "wiki": WikiDataset, "wdc": WdcDataset}
+# %% Main Pipeline 
 
+SETS = {"sheet": SheetDataset, "wiki": WikiDataset, "wdc": WdcDataset}
 
 
 def main():
     parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     
     # I/O options.
-    parser.add_argument("--input_dir", type=str, default=None, help="Input directory of pre-training table files.")
+    parser.add_argument("--input_dir", type=str, default='../data/pretrain/spreadsheet', help="Input directory of pre-training table files.")
     parser.add_argument("--input_path", type=str, default='../data/pretrain/wiki-table-samples.json', help="Input single file containing multiple tables.")
     parser.add_argument("--source_type", type=str, default='wiki', choices=["sheet", "wiki", "wdc"])
     parser.add_argument("--cache_dir", type=str, default="./", help="Folder to save workers cache.")
