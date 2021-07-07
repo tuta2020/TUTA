@@ -146,7 +146,7 @@ def main():
     parser.add_argument("--chunk_size", type=int, default=50000, help="Mininum chunk size from a random data set.")
 
     # io options
-    parser.add_argument("--dataset_paths", type=str, required=True, help="Paths of the preprocessed dataset.")
+    parser.add_argument("--dataset_paths", type=str, default='../dataset.pt', help="Paths of the preprocessed dataset.")
     parser.add_argument("--pretrained_model_path", type=str, default=None, help="Path of the pretrained bert/ts model.")
     parser.add_argument("--load_type", type=str, default="tuta", choices=["tuta", "bert", None])
     parser.add_argument("--output_model_path", type=str, default="tuta.bin", help="Path of the output model.")

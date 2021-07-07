@@ -10,7 +10,6 @@ with pre-processing for three pre-training objectives:
 """
 
 from typing import Dict, List
-from __future__ import absolute_import, division, print_function, unicode_literals
 import os
 import random
 import collections

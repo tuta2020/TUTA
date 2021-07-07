@@ -314,10 +314,10 @@ def main():
     
     # I/O options.
     parser.add_argument("--input_dir", type=str, default=None, help="Input directory of pre-training table files.")
-    parser.add_argument("--input_path", type=str, default=None, help="Input single file containing multiple tables.")
-    parser.add_argument("--source_type", type=str, required=True, choices=["sheet", "wiki", "wdc"])
+    parser.add_argument("--input_path", type=str, default='../data/pretrain/wiki-table-samples.json', help="Input single file containing multiple tables.")
+    parser.add_argument("--source_type", type=str, default='wiki', choices=["sheet", "wiki", "wdc"])
     parser.add_argument("--cache_dir", type=str, default="./", help="Folder to save workers cache.")
-    parser.add_argument("--output_path", type=str, required=True, help="Path to save the pre-processed dataset.")
+    parser.add_argument("--output_path", type=str, default='../dataset.pt', help="Path to save the pre-processed dataset.")
     
     # Preprocess options.
     parser.add_argument("--vocab_path", type=str, default="./vocab/bert_vocab.txt", help="Path of the vocabulary file.")
@@ -367,7 +367,6 @@ def main():
     dataset = SETS[args.source_type](args)
     dataset.build_and_save(args.processes_num)
 
+
 if __name__ == "__main__":
     main()
-
-# %%
